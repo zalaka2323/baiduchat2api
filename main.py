@@ -40,6 +40,7 @@ def load_config(path: str = "config.toml") -> Dict[str, Any]:
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = True
 client: Optional[BaiduChatClient] = None
+api_keys: set[str] = set()
 
 
 MODEL_LIST = [
@@ -106,6 +107,39 @@ def _resolve_client_config(config: Dict[str, Any]) -> Dict[str, Any]:
             else config.get("auto_save_cookies", True)
         ),
     }
+
+
+def _resolve_api_keys(config: Dict[str, Any]) -> set[str]:
+    auth_cfg = config.get("auth", {})
+    if not isinstance(auth_cfg, dict):
+        return set()
+
+    configured = auth_cfg.get("api_keys") or auth_cfg.get("api_key") or []
+    if isinstance(configured, str):
+        configured = [configured]
+    if not isinstance(configured, list):
+        return set()
+    return {str(key).strip() for key in configured if str(key).strip()}
+
+
+def _check_auth():
+    if not api_keys:
+        return None
+
+    auth_header = request.headers.get("Authorization", "")
+    prefix = "Bearer "
+    if not auth_header.startswith(prefix):
+        return _error("Missing Authorization bearer token", 401, "unauthorized")
+
+    token = auth_header[len(prefix):].strip()
+    if token not in api_keys:
+        return _error("Invalid API key", 401, "unauthorized")
+    return None
+
+
+@app.before_request
+def require_api_key():
+    return _check_auth()
 
 
 @app.route("/v1/models", methods=["GET"])
@@ -299,11 +333,12 @@ def _handle_sync(query: str, baidu_model: str, deep_search: bool, display_model:
 # Startup
 # ------------------------------------------------------------------
 def run_server(host: str = "0.0.0.0", port: int = 8000, config: Optional[Dict[str, Any]] = None):
-    global client
+    global client, api_keys
     config = config or {}
 
     host, port = _resolve_server_config(config, host, port)
     client_cfg = _resolve_client_config(config)
+    api_keys = _resolve_api_keys(config)
 
     client = BaiduChatClient(
         cookies=client_cfg["cookies"],
@@ -315,6 +350,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, config: Optional[Dict[st
     _log("INFO", f"Flask server starting at http://{host}:{port}")
     cookie_mode = "user-provided" if client_cfg["cookies"] else f"auto-fetch + file={client_cfg['cookie_file']}"
     _log("INFO", f"Cookie mode: {cookie_mode}")
+    _log("INFO", f"Auth: {'enabled' if api_keys else 'disabled'}")
     _log("INFO", "Models: baidu-ernie-4.5[-think], baidu-deepseek-r1[-think], baidu-deepseek-v4-pro[-think]")
     app.run(host=host, port=port, threaded=True, debug=False)
 

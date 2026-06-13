@@ -42,6 +42,7 @@ def test_flask_server():
     # Patch the global client in main module
     import main as main_mod
     main_mod.client = mock_client
+    main_mod.api_keys = set()
 
     # Configure Flask test client
     app.config["TESTING"] = True
@@ -165,6 +166,27 @@ def test_flask_server():
             "finish_reason": finish_reason,
             "tool_name": (tool_delta or {}).get("function", {}).get("name"),
         })
+
+        # Test 7: Optional API key auth
+        main_mod.api_keys = {"sk-test"}
+        r = tc.get("/v1/models")
+        results.append({
+            "test": "auth_missing",
+            "status": r.status_code,
+            "error_type": (r.get_json() or {}).get("error", {}).get("type"),
+        })
+        r = tc.get("/v1/models", headers={"Authorization": "Bearer sk-wrong"})
+        results.append({
+            "test": "auth_invalid",
+            "status": r.status_code,
+            "error_type": (r.get_json() or {}).get("error", {}).get("type"),
+        })
+        r = tc.get("/v1/models", headers={"Authorization": "Bearer sk-test"})
+        results.append({
+            "test": "auth_valid",
+            "status": r.status_code,
+        })
+        main_mod.api_keys = set()
 
     return results
 

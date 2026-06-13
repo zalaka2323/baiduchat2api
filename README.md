@@ -72,10 +72,22 @@ python main.py --config config.toml
 python main.py --port 8000
 ```
 
+公网部署时建议在 `config.toml` 配置自定义密钥：
+```toml
+[auth]
+api_keys = ["sk-your-secret-key"]
+```
+
+配置后，请求必须携带：
+```bash
+-H "Authorization: Bearer sk-your-secret-key"
+```
+
 ### 4. API 调用示例
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-your-secret-key" \
   -d '{
     "model": "baidu-deepseek",
     "messages": [{"role": "user", "content": "1+1等于几"}],
@@ -87,6 +99,7 @@ curl http://localhost:8000/v1/chat/completions \
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-your-secret-key" \
   -d '{
     "model": "baidu-smart",
     "messages": [{"role": "user", "content": "北京天气怎么样"}],

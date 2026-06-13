@@ -10,6 +10,12 @@ value = ""
 host = "0.0.0.0"
 port = 8000
 
+[auth]
+# 公网部署建议配置一个或多个 sk- 开头的 API Key。
+# 留空表示不启用鉴权，保持本地开发兼容。
+api_keys = []
+# api_keys = ["sk-your-secret-key"]
+
 [models]
 # Map OpenAI model names to Baidu models
 wenxin = "ernie-4.5"
